@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+  body { background-color: #ddd; }
+
+</style>
+<body>
+  <div id="legend">
+    <div id="zip"></div> <div id="town"></div> <div id="earnings"></div>
+  </div>
+
+<svg width="960" height="600"></svg>
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+<script src="https://d3js.org/topojson.v2.min.js"></script>
+<script>
+
+var svg = d3.select("svg"),
+    width = +svg.attr("width"),
+    height = +svg.attr("height");
+
+var earnings = d3.map();
+
+
+var promises = [
+  d3.json("../data/cooked/ma-zips.topojson"),
+  d3.csv("../data/cooked/total-earnings-police-by-zip.csv", function(d) { earnings.set(d.POSTAL, +d['TOTAL EARNINGS']); })
+]
+
+var zipLegend = d3.select('#zip');
+var townLegend = d3.select('#town');
+var earningsLegend = d3.select('#earnings');
+
+function setLegend(d) {
+  zipLegend.text(d.properties.POSTCODE);
+  townLegend.text(d.properties.CITY_TOWN);
+  earningsLegend.text(Math.round(earnings.get(d.properties.POSTCODE)).toLocaleString());
+}
+
+Promise.all(promises).then(ready)
+
+
+function ready([zips]) {
+
+
+  var color = d3.scaleSqrt()
+    .domain([d3.min(earnings.values()),d3.max(earnings.values())])
+    .range(['black','green']);
+
+  var projection = d3.geoConicConformal()
+  .parallels([41 + 43 / 60, 42 + 41 / 60])
+  .rotate([71 + 30 / 60, 0])
+  .fitSize([width,height], topojson.feature(zips, zips.objects['ma-zips']));
+
+  var path = d3.geoPath(projection);
+
+  svg.append("g")
+      .attr("class", "zips")
+    .selectAll("path")
+    .data(topojson.feature(zips, zips.objects['ma-zips']).features)
+    .enter().append("path")
+      .attr("fill", d => { return color( earnings.get(d.properties.POSTCODE) ); })
+      .attr("d", path)
+      .on('mouseover', setLegend)
+      .on('mouseover', clearLegend)
+
+
+}
+
+</script>
